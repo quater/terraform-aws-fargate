@@ -167,7 +167,7 @@ data "template_file" "tasks" {
     container_port = local.services[count.index].container_port
     repository_url = aws_ecr_repository.this[count.index].repository_url
     log_group      = aws_cloudwatch_log_group.this[count.index].name
-    region         = var.region != "" ? var.region : data.aws_region.current.name
+    region         = data.aws_region.current.name
   }
 }
 
