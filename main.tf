@@ -337,39 +337,6 @@ resource "aws_lb_listener" "this" {
   }
 }
 
-# SERVICE DISCOVERY
-
-resource "aws_service_discovery_private_dns_namespace" "this" {
-  count = length([for s in local.services : s if lookup(s, "service_discovery_enabled", false)]) > 0 ? 1 : 0
-
-  name        = "${var.name}.${terraform.workspace}.local"
-  description = "${var.name} private dns namespace"
-  vpc         = local.vpc_id
-}
-
-resource "aws_service_discovery_service" "this" {
-  # ⚠️ replace when https://github.com/hashicorp/terraform/issues/22560 gets fixed
-  # for_each = [for s in local.services : s if lookup(s, "service_discovery_enabled", false)]
-  count = length(local.services_with_sd) > 0 ? length(local.services_with_sd) : 0
-
-  # name = each.value.name
-  name = local.services_with_sd[count.index].name
-
-  dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.this[0].id
-
-    dns_records {
-      ttl  = 10
-      type = "A"
-    }
-
-    routing_policy = "MULTIVALUE"
-  }
-
-  health_check_custom_config {
-    failure_threshold = 1
-  }
-}
 
 # ECS SERVICES
 
@@ -403,14 +370,6 @@ resource "aws_ecs_service" "this" {
     target_group_arn = aws_lb_target_group.this[count.index].arn
     container_name   = local.services[count.index].name
     container_port   = local.services[count.index].container_port
-  }
-
-  dynamic "service_registries" {
-    for_each = [for s in aws_service_discovery_service.this : s if s.name == local.services[count.index].name]
-
-    content {
-      registry_arn = service_registries.value.arn
-    }
   }
 
   depends_on = [aws_lb_target_group.this, aws_lb_listener.this]
